@@ -1457,8 +1457,7 @@ class redrokk_login_class
 					<span class="login-label login-username"><?php _e('Username') ?></span>
 					<br />
 					
-					<input type="text" name="user_login" id="user_login" class="input" size="20"
-					value="<?php echo esc_attr(stripslashes($user_login)); ?>" tabindex="10" />
+					<input type="text" name="user_login" id="user_login" class="input" size="20" value="<?php echo esc_attr(stripslashes($user_login)); ?>" tabindex="10" />
 				</label>
 			</p>
 			<p>
@@ -1466,8 +1465,7 @@ class redrokk_login_class
 					<span class="login-label login-email"><?php _e('E-mail') ?></span>
 					<br />
 					
-					<input type="email" name="user_email" id="user_email" class="input" size="25" 
-					value="<?php echo esc_attr(stripslashes($user_email)); ?>" tabindex="20" />
+					<input type="email" name="user_email" id="user_email" class="input" size="25" value="<?php echo esc_attr(stripslashes($user_email)); ?>" tabindex="20" />
 				</label>
 			</p>
 			<?php do_action('register_form'); ?>
