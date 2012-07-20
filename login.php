@@ -1474,8 +1474,7 @@ class redrokk_login_class
 			
 			<input type="hidden" name="redirect_to" value="<?php echo esc_attr( $redirect_to ); ?>" />
 			<p class="submit">
-				<input type="submit" name="wp-submit" id="wp-submit" class="button-primary register-button" 
-				value="<?php esc_attr_e('Register'); ?>" tabindex="100" />
+				<input type="submit" name="wp-submit" id="wp-submit" class="button-primary register-button" value="<?php esc_attr_e('Register'); ?>" tabindex="100" />
 			</p>
 		</form>
 		
