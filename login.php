@@ -1413,8 +1413,7 @@ class redrokk_login_class
 		
 			<br class="clear" />
 			<p class="submit">
-				<input type="submit" name="wp-submit" id="wp-submit" class="button-primary" 
-				value="<?php esc_attr_e('Reset Password'); ?>" tabindex="100" />
+				<input type="submit" name="wp-submit" id="wp-submit" class="button-primary" value="<?php esc_attr_e('Reset Password'); ?>" tabindex="100" />
 			</p>
 		</form>
 		
@@ -1486,8 +1485,7 @@ class redrokk_login_class
 			
 			<span class="login-spacer"> | </span>
 			
-			<a href="<?php echo esc_url( $this->getLoginUrl('lostpassword') ); ?>" 
-			class="login-lostpw-link" title="<?php esc_attr_e( 'Password Lost and Found' ) ?>">
+			<a href="<?php echo esc_url( $this->getLoginUrl('lostpassword') ); ?>" class="login-lostpw-link" title="<?php esc_attr_e( 'Password Lost and Found' ) ?>">
 				<?php _e( 'Lost your password?' ); ?></a>
 		</p>
 		
