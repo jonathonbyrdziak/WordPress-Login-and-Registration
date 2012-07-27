@@ -49,7 +49,7 @@ class redrokk_login_class
 	 * 
 	 * @var string
 	 */
-	var $action;
+	var $action = 'login';
 	
 	/**
 	 * Variable contains any errors that may occur during the login process
@@ -82,23 +82,21 @@ class redrokk_login_class
 		$this->setProperties($options);
 		
 		//initializing
-		$this->action = isset($_REQUEST['action']) ? $_REQUEST['action'] : false;
+		$this->action = isset($_REQUEST['action']) ? $_REQUEST['action'] : $this->action;
 		
 		if ( isset($_GET['key']) )
 			$this->action = 'resetpass';
 		
 		// validate action so as to default to the login screen
-		if ( $this->action && !in_array($this->action, array('logoutconfirm', 'logout', 'lostpassword', 
+		if ( !in_array($this->action, array('logoutconfirm', 'logout', 'lostpassword', 
 		'retrievepassword', 'resetpass', 'rp', 'register', 'login','confirmation','checkemail'), true) 
 		&& false === has_filter('login_form_' . $action) )
-			$this->action = false;
+			$this->action = 'login';
 		
 		$this->login_id = get_option('redrokk_login_class::login_page_id', false);
 		
 		//hooks
 		add_action('init', array($this, 'init'));
-		//add_shortcode('redrokk_login_class', array($this, 'shortcode'));
-		
 		add_filter('logout_url', array($this, 'logout_url'), 20, 2);
 		add_filter('login_url', array($this, 'login_url'), 20, 2);
 	}
@@ -111,7 +109,12 @@ class redrokk_login_class
 	function init()
 	{
 		// initializing
-		$http_post = ('POST' == $_SERVER['REQUEST_METHOD']);
+		$http_post = (!empty($_REQUEST) 
+				&& (isset($_REQUEST['user_login']) 
+				|| isset($_REQUEST['pass1'])
+				|| isset($_REQUEST['log'])
+				|| isset($_REQUEST['user_email'])
+			));
 		$this->errors = new WP_Error();
 		
 		if (!$this->action) return;
@@ -197,6 +200,7 @@ class redrokk_login_class
 			break;
 			
 			case 'login' :
+				if (!$http_post) break;
 				$secure_cookie = '';
 				$interim_login = isset($_REQUEST['interim-login']);
 			
@@ -373,17 +377,14 @@ class redrokk_login_class
 					</span>
 				</label>
 				
-				<input type="text" name="user_login" id="user_login" class="input red_login_input" 
-				value="<?php echo esc_attr($user_login); ?>" size="20" tabindex="10" />
+				<input type="text" name="user_login" id="user_login" class="input red_login_input" value="<?php echo esc_attr($user_login); ?>" size="20" tabindex="10" />
 			</p>
 			
 			<?php do_action('lostpassword_form'); ?>
-			<input type="hidden" name="redirect_to" value="<?php echo esc_attr( $redirect_to ); ?>" 
-			class="red_login_hidden"/>
+			<input type="hidden" name="redirect_to" value="<?php echo esc_attr( $redirect_to ); ?>" class="red_login_hidden"/>
 			
 			<p class="submit">
-				<input type="submit" name="wp-submit" id="wp-submit" class="button-primary red_login_button" 
-				value="<?php esc_attr_e('Get New Password'); ?>" tabindex="100" />
+				<input type="submit" name="wp-submit" id="wp-submit" class="button-primary red_login_button" value="<?php esc_attr_e('Get New Password'); ?>" tabindex="100" />
 			</p>
 		</form>
 		
@@ -435,8 +436,7 @@ class redrokk_login_class
 		
 			<br class="clear" />
 			<p class="submit">
-				<input type="submit" name="wp-submit" id="wp-submit" class="button-primary red_login_button" 
-				value="<?php esc_attr_e('Reset Password'); ?>" tabindex="100" />
+				<input type="submit" name="wp-submit" id="wp-submit" class="button-primary red_login_button" value="<?php esc_attr_e('Reset Password'); ?>" tabindex="100" />
 			</p>
 		</form>
 		
@@ -473,22 +473,20 @@ class redrokk_login_class
 			} 
 			
 			?>
-		<form name="registerform" id="registerform" action="<?php echo esc_url( $this->getLoginUrl('register') ); ?>" method="post">
+		<form name="registerform" autocomplete="off" id="registerform" action="<?php echo esc_url( $this->getLoginUrl('register') ); ?>" method="post">
 			<p>
 				<label for="user_login">
 					<span class="login-label login-username"><?php _e('Username') ?></span>
 				</label>
 				
-				<input type="text" name="user_login" id="user_login" class="input red_login_input" size="20"
-				value="<?php echo esc_attr(stripslashes($user_login)); ?>" tabindex="10" />
+				<input type="text" name="user_login" id="user_login" class="input red_login_input" size="20"value="<?php echo esc_attr(stripslashes($user_login)); ?>" tabindex="10" />
 			</p>
 			<p>
 				<label for="user_email">
 					<span class="login-label login-email"><?php _e('E-mail') ?></span>
 				</label>
 				
-				<input type="email" name="user_email" id="user_email" class="input red_login_input" size="25" 
-				value="<?php echo esc_attr(stripslashes($user_email)); ?>" tabindex="20" />
+				<input type="email" name="user_email" id="user_email" class="input red_login_input" size="25" value="<?php echo esc_attr(stripslashes($user_email)); ?>" tabindex="20" />
 			</p>
 			<?php do_action('register_form'); ?>
 			
@@ -503,13 +501,11 @@ class redrokk_login_class
 		</form>
 		
 		<p id="nav"> 
-			<a class="login-login-link login-link-registration" href="<?php echo esc_url( $this->getLoginUrl() ); ?>">
-				<?php _e( 'Log in' ); ?></a>
+			<a class="login-login-link login-link-registration" href="<?php echo esc_url( $this->getLoginUrl() ); ?>"><?php _e( 'Log in' ); ?></a>
 			
 			<span class="login-spacer"> | </span>
 			
-			<a href="<?php echo esc_url( $this->getLoginUrl('lostpassword') ); ?>" 
-			class="login-lostpw-link" title="<?php esc_attr_e( 'Password Lost and Found' ) ?>">
+			<a href="<?php echo esc_url( $this->getLoginUrl('lostpassword') ); ?>" class="login-lostpw-link" title="<?php esc_attr_e( 'Password Lost and Found' ) ?>">
 				<?php _e( 'Lost your password?' ); ?></a>
 		</p>
 		
@@ -572,7 +568,7 @@ class redrokk_login_class
 			}
 			
 			?>
-		<form name="loginform" id="loginform" action="<?php echo esc_url( $this->getLoginUrl() ); ?>" method="post">
+		<form name="loginform" autocomplete="off" id="loginform" action="<?php echo esc_url( $this->getLoginUrl() ); ?>" method="post">
 			<p>
 				<label for="user_login">
 					<span class="login-label login-username">
@@ -580,8 +576,7 @@ class redrokk_login_class
 					</span>
 				</label>
 				
-				<input type="text" name="log" id="user_login" class="input red_login_input" 
-				value="<?php echo esc_attr($user_login); ?>" size="20" tabindex="10" />
+				<input type="text" name="log" id="user_login" class="input red_login_input" value="<?php echo esc_attr($user_login); ?>" size="20" tabindex="10" />
 			</p>
 			<p>
 				<label for="user_pass">
@@ -590,15 +585,13 @@ class redrokk_login_class
 					</span>
 				</label>
 				
-				<input type="password" name="pwd" id="user_pass" class="input red_login_input" value="" 
-				size="20" tabindex="20" />
+				<input type="password" name="pwd" id="user_pass" class="input red_login_input" value="" size="20" tabindex="20" />
 			</p>
 			<?php do_action('login_form'); ?>
 			
 			<p class="forgetmenot">
 				<label for="rememberme">
-					<input name="rememberme" type="checkbox" id="rememberme" value="forever" 
-					tabindex="90" <?php checked( $rememberme ); ?> class="red_login_checkbox" />
+					<input name="rememberme" type="checkbox" id="rememberme" value="forever" tabindex="90" <?php checked( $rememberme ); ?> class="red_login_checkbox" />
 					
 					<span class="login-label login-rememberme">
 						<?php esc_attr_e('Remember Me'); ?>
@@ -630,14 +623,12 @@ class redrokk_login_class
 				
 				<span class="login-spacer"> | </span>
 				
-				<a class="login-lostpw-link" href="<?php echo esc_url( $this->getLoginUrl('lostpassword') ); ?>" 
-				title="<?php esc_attr_e( 'Password Lost and Found' ); ?>">
+				<a class="login-lostpw-link" href="<?php echo esc_url( $this->getLoginUrl('lostpassword') ); ?>" title="<?php esc_attr_e( 'Password Lost and Found' ); ?>">
 					<?php _e( 'Lost your password?' ); ?>
 				</a>
 				
 			<?php else : ?>
-				<a href="<?php echo esc_url( $this->getLoginUrl('lostpassword') ); ?>" 
-				title="<?php esc_attr_e( 'Password Lost and Found' ); ?>">
+				<a href="<?php echo esc_url( $this->getLoginUrl('lostpassword') ); ?>" title="<?php esc_attr_e( 'Password Lost and Found' ); ?>">
 					<?php _e( 'Lost your password?' ); ?>
 				</a>
 			<?php endif; ?>
@@ -694,7 +685,7 @@ class redrokk_login_class
 	 * @param string $logout_url
 	 * @param string $redirect
 	 */
-	function logout_url( $logout_url, $redirect )
+	function logout_url( $logout_url, $redirect = false )
 	{
 		if (!$this->login_id) return $logout_url;
 		
@@ -740,7 +731,8 @@ class redrokk_login_class
 		)); 
 		
 		$lc = redrokk_login_class::getInstance();
-		return $lc->getDisplay($atts);
+		$display = $lc->getDisplay($atts);
+		return str_replace(array("\r","\n"), '', $display);
 	}
 	
 	/**

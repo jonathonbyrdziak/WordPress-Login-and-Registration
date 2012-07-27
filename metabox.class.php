@@ -151,7 +151,7 @@ class redrokk_metabox_class
 	 * @param string|object $value
 	 */
 	function setObjectTypes( $value )
-	{ 
+	{
 		if (is_a($value, 'redrokk_post_class')) {
 			$value = $value->_post_type;
 		}
@@ -814,6 +814,7 @@ jQuery('#edit_<?php echo $this->_category_name; ?>_<?php echo $meta_id; ?>').cli
 				'name' 			=> 'element_name', 
 				'hierarchical' 	=> true
 			),
+			'attributes' => ''
 		);
 		
 		// no fields to render
@@ -934,8 +935,8 @@ jQuery('#edit_<?php echo $this->_category_name; ?>_<?php echo $meta_id; ?>').cli
 					<label for="<?php echo $id; ?>"><?php echo $name; ?></label>
 				</th>
 				<td>
-					<input 
-						id="<?php echo $id; ?>" 
+					<input  <?php echo $attributes ?>
+						id="<?php echo $id; ?>"
 						value="<?php echo $meta; ?>" 
 						type="<?php echo $type; ?>" 
 						name="<?php echo $id; ?>" 
@@ -948,7 +949,7 @@ jQuery('#edit_<?php echo $this->_category_name; ?>_<?php echo $meta_id; ?>').cli
 			<?php case 'button': ?>
 			<tr>
 				<td colspan="2">
-					<input 
+					<input  <?php echo $attributes ?>
 						id="<?php echo $id; ?>" 
 						value="<?php echo $name; ?>" 
 						type="submit" 
@@ -971,7 +972,7 @@ jQuery('#edit_<?php echo $this->_category_name; ?>_<?php echo $meta_id; ?>').cli
 					<?php else: ?>
 						<input type="hidden" name="<?php echo $this->_id; ?>files" value="<?php echo $id; ?>" />
 						<!-- first hidden input forces this item to be submitted when it is not checked -->
-						<input 
+						<input  <?php echo $attributes ?>
 							id="<?php echo $id; ?>" 
 							type="file" 
 							name="<?php echo $id; ?>" 
@@ -985,12 +986,13 @@ jQuery('#edit_<?php echo $this->_category_name; ?>_<?php echo $meta_id; ?>').cli
 			<?php case 'title': ?>
 			<tr>
 				<th colspan="2" scope="row">
-					<h3 style="border: 1px solid #ddd;
+					<h3  <?php echo $attributes ?> style="border: 1px solid #ddd;
 						padding: 10px;
 						background: #eee;
 						border-radius: 2px;
 						color: #666;
-						margin: 0;"><?php echo $name; ?></h1>
+						margin: 0;"><?php echo $name; ?>
+					</h3>
 				</th>
 			</tr>
 			<?php break; ?>
@@ -1004,20 +1006,12 @@ jQuery('#edit_<?php echo $this->_category_name; ?>_<?php echo $meta_id; ?>').cli
 					<!-- first hidden input forces this item to be submitted when it is not checked -->
 					
 					<?php foreach ((array)$options as $_value => $_name): ?>
-							<input value="<?php echo $_value; ?>" type="<?php echo $type; ?>" 
-								name="<?php echo $element_name; ?>" id="<?php echo $id; ?>" 
+							<input value="<?php echo $_value; ?>" type="checkbox" <?php echo $attributes ?> 
+								name="<?php echo $element_name; ?>" id="<?php echo $id; ?>"
 								<?php echo $meta == $_value? 'checked="checked"' :''; ?>
 								class="<?php echo $class; ?>" />
 							<?php echo $_name; ?>
 					<?php endforeach; ?>
-					<!-- 
-					<input 
-						value="<?php echo $value; ?>" 
-						type="<?php echo $type; ?>" 
-						name="<?php echo $id; ?>" 
-						<?php echo $meta == $_value ?'checked="checked"' :''; ?>
-						class="<?php echo $class; ?>" />
-						 -->
 					<span class="description"><?php echo $desc; ?></span>
 				</td>
 			</tr>
@@ -1032,17 +1026,9 @@ jQuery('#edit_<?php echo $this->_category_name; ?>_<?php echo $meta_id; ?>').cli
 						<input name="<?php echo $element_name; ?>"  id="<?php echo $id; ?>" 
 							value="<?php echo $_value; ?>" type="<?php echo $type; ?>" 
 							<?php echo $meta == $_value?'checked="checked"' :''; ?>
-							class="<?php echo $class; ?>" />
+							 <?php echo $attributes ?> class="<?php echo $class; ?>" />
 							<?php echo $_name; ?>
 					<?php endforeach; ?>
-					<!-- 
-						<input 
-							value="<?php echo $value; ?>" 
-							type="<?php echo $type; ?>" 
-							name="<?php echo $id; ?>" 
-							<?php echo $meta == $_value ?'checked="checked"' :''; ?>
-							class="<?php echo $class; ?>" />
-					 -->
 					<span class="description"><?php echo $desc; ?></span>
 				</td>
 			</tr>
@@ -1053,7 +1039,7 @@ jQuery('#edit_<?php echo $this->_category_name; ?>_<?php echo $meta_id; ?>').cli
 					<label for="<?php echo $id; ?>"><?php echo $name; ?></label>
 				</th>
 				<td>
-					<textarea 
+					<textarea  <?php echo $attributes ?> 
 						id="<?php echo $id; ?>" 
 						name="<?php echo $id; ?>" 
 						class="large-text <?php echo $class; ?>"
@@ -1100,7 +1086,7 @@ jQuery('#edit_<?php echo $this->_category_name; ?>_<?php echo $meta_id; ?>').cli
 					
 					<?php else: ?>
 					
-					<select 
+					<select  <?php echo $attributes ?> 
 						id="<?php echo $id; ?>" 
 						name="<?php echo $id; ?>" 
 						class="<?php echo $class; ?>"
@@ -1121,7 +1107,7 @@ jQuery('#edit_<?php echo $this->_category_name; ?>_<?php echo $meta_id; ?>').cli
 			<?php case 'hidden': ?>
 			<tr>
 				<td colspan="2">
-					<input 
+					<input  <?php echo $attributes ?> 
 						id="<?php echo $id; ?>" 
 						value="<?php echo $meta ?$meta :$default; ?>" 
 						type="<?php echo $type; ?>" 
@@ -1167,7 +1153,9 @@ jQuery('#edit_<?php echo $this->_category_name; ?>_<?php echo $meta_id; ?>').cli
 	{
 		// initializing
 		$options = array('0'=>' -- ');
-		$menus = get_terms('nav_menu');
+		$menus = get_terms('nav_menu', array(
+			'hide_empty' => 0
+		));
 
 		foreach($menus as $menu) {
 			$options[$menu->slug] = $menu->name;

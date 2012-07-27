@@ -51,7 +51,7 @@ add_filter( 'admin_url', 'red_change_profile_url', 100, 1 );
 add_filter( 'wp_nav_menu_items', 'red_activate_menu_login', 10, 2 );
 add_filter( 'wp_page_menu', 'red_activate_pages_login', 10, 2 );
 add_filter( 'login_url', 'red_change_login_url', 100, 2 );
-add_filter( 'login_url', 'red_login_url', 2000 );
+add_filter( 'login', 'red_change_login_url', 2000 );
 
 add_action( 'init', 'red_login_popup_script' );
 add_action( 'wp_footer', 'red_footer' );
@@ -468,9 +468,15 @@ function red_activate_menu_login($items, $args)
 	if (is_user_logged_in()) return $items;
 	
 	// creating the loginout link
+	$href = apply_filters('login_url', red_login());
+	if (get_option('red_login_popup', false))
+	{
+		$href = '#';
+	}
+	
 	$text = get_option('red_login_text', 'Login');
 	$link = '<li id="menu-item'.sanitize_title($text).'" class="menu-item menu-item'.sanitize_title($text).'">'.
-		'<a class="page-item-'.sanitize_title($text).'" href="'.apply_filters('login_url', red_login()).'">'.$text.'</a></li>';
+		'<a class="page-item-login page-item-'.sanitize_title($text).'" href="'.$href.'">'.$text.'</a></li>';
 	
 	$items = (get_option('red_login_position','false')=='true'?true:false)
 		? $link.$items
@@ -491,9 +497,14 @@ function red_activate_pages_login($ul, $args)
 	
 	if (class_exists('DOMDocument'))
 	{
+		$href = apply_filters('login_url', red_login());
+		if (get_option('red_login_popup', false))
+		{
+			$href = '#';
+		}
 		$ul = red_domdocument( 
 			$ul, 
-			apply_filters('login_url', red_login()), 
+			$href, 
 			get_option('red_logout_text', 'Login'), 
 			(get_option('red_login_position','false')=='true'?true:false) 
 		);
@@ -526,13 +537,9 @@ function red_change_login_url( $url, $redirect = false )
  * 
  * 
  */
-function red_login_url( $url )
-{
-	if (!get_option('red_login_popup', false)) return $url;
-	return '#';
-}
 function red_login_popup_script()
 {
+	if (is_admin()) return;
 	if (!get_option('red_login_popup', false)) return;
 	
 	wp_enqueue_script( 
@@ -545,6 +552,7 @@ function red_login_popup_script()
 }
 function red_footer()
 {
+	if (is_admin()) return;
 	if (!get_option('red_login_popup', false)) return;
 	
 	if ($custom = locate_template(array('red_login_popup.php'))) {
