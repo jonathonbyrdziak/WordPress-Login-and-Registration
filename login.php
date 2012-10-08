@@ -30,14 +30,19 @@ defined("DS") or define("DS", DIRECTORY_SEPARATOR);
  * Loading the widget class
  * 
  */
-require_once dirname(__file__).DS.'metabox.class.php';
-require_once dirname(__file__).DS.'admin.class.php';
-require_once dirname(__file__).DS.'login.class.php';
-require_once dirname(__file__).DS.'widget.class.php';
+require_once dirname(__file__).DS.'lib'.DS.'metabox.class.php';
+require_once dirname(__file__).DS.'lib'.DS.'admin.class.php';
+require_once dirname(__file__).DS.'lib'.DS.'login.class.php';
+require_once dirname(__file__).DS.'lib'.DS.'widget.class.php';
+require_once dirname(__file__).DS.'lib'.DS.'facebook.sdk.php';
+require_once dirname(__file__).DS.'lib'.DS.'facebook.class.php';
+
 require_once dirname(__file__).DS.'widgets.php';
 
 // hooks
 register_nav_menu( 'redrokk-login-widget', 'Built In User Menu' );
+
+add_filter( 'get_avatar', 'facebook_get_avatar', 20, 3 );
 add_filter( 'wp_nav_menu_items', 'red_activate_menu_register', 10, 2 );
 add_filter( 'wp_page_menu', 'red_activate_pages_register', 10, 2 );
 add_filter( 'register', 'red_change_register', 100, 1 );
@@ -55,6 +60,9 @@ add_filter( 'login', 'red_change_login_url', 2000 );
 
 add_action( 'init', 'red_login_popup_script' );
 add_action( 'wp_footer', 'red_footer' );
+add_action( 'wp_ajax_nopriv_registration', 'red_login_registration');
+add_action( 'wp_ajax_nopriv_lostpassword_ajax', 'red_lostpassword');
+add_action( 'wp_ajax_nopriv_login_ajax', 'red_login_ajax');
 
 add_filter( 'wp_nav_menu_items', 'red_activate_menu_logout', 10, 2 );
 add_filter( 'wp_page_menu', 'red_activate_pages_logout', 10, 2 );
@@ -75,6 +83,18 @@ $loginadminpage = redrokk_admin_class::getInstance('loginadminpage', array(
 	'parent_menu'	=> 'appearance',
 	'screen_icon'	=> 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAABGdBTUEAALGPC/xhBQAAAAZiS0dEAP8A/wD/oL2nkwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAAd0SU1FB9wHBRM2Gd/BfkoAAAMhSURBVDjLrZRLb1tVFIW/fX2u48Rx8zSiOFESgWiU0ioDqsgSD5UiUYWH6Kg/g0ErMUBC9IcwADFggMQUJowYJA2iaVQ1DJLYSZoHzcNNnPi+fM5mcG0rrcoksCd3cHS+vdbe61z4n0t++/Mv/0J37m2T8boBPS+naV1wHIR/mChKPs50d/0s6s5PAzIoUZTcMknTzuzsPUMVbZ2dp1QEaYrMGAWJmsp/gIGkdz0jYrJ+hulLo3RlfVT/xU9bhlUQRRVU0y8KipIklkcbuxhByPfkKOR7Xtq8fhISBHEKdOnWUmCriSrGZOjO+YgIBoFGI+bB0g77ByeIpJKcU6bfKvFk5xA/o2SzpnPWUYzirOW0YZkYfwVEMCgYk2FsZIChwXzHoaoyNJinurnHWOkC3bksnuc9D1TFWkv1yRHWOgQwAL7vMTY6+FLLly+VqG4eYm1EOwpn7aoqw4MF+go59G9NgWcDqKoda3v7+zzd3aI4kGd8bBwRQRG0RVSXLsap0mjN2by4yTasmSSsrazQPzBAEITM37/PxVcv0j9QpGnTpKgqTWvpypqOJgPQbDq2do7SbUpqKY5jTgNHdf0BpdIIxWKR9Y11VtY28Uwvx8d1fN9ndHQUZ6FYLLSAAkliWasesF877Yh1Dq5OvUlsDYuL80xNTdHX18/y8mMWFx8ShhHWNhkeHubq9HsMF2dasVHI5XzK18ZxVjtzBOjqMqxVn1IYusKPP/1KXz7h8LCGqhLHMWEYUqlUmJubo7I2y1T5empZnZLx5Mwo0/kkTcuN9yeBSW7fKnPv3jfEcYyqUqvV6O0tMDv7KQsL83z/3bdcXlrCAzxPQETU84R2dkUEEQ/nFOcczjpGSiNkfZ8oihAR7t79koODPSqVVa3X6+xub3tGVTd2ayc8a0SimiZI9EyS2hEBrr3zAdt7h9SXH+Gc486dLzSOYzltBHLjo0949+ZnG8Y5/WH74Ohx6xXoC2/rucpme3h98kqyMPf7zSgMv3LOycnJyXEQRl9/OPv5w9cm3lg81y+rXC57YRhOBEFwPUmSX1ZXV7fa7f8BAqmdfON9nh8AAAAASUVORK5CYII='
 ));
+
+/**
+ * STANDARD OPTIONS
+ * 
+ *//*
+redrokk_metabox_class::getInstance('generalsettings', array(
+	'title'			=> 'General Settings',
+	'_object_types'	=> $loginadminpage,
+	'priority'		=> 'high',
+	'_fields'		=> array(
+	)
+));*/
 
 /**
  * Registration Menu Item
@@ -297,7 +317,7 @@ function red_activate_menu_profile($items, $args)
 	
 	// adding the loginout link
 	$link = '<li id="menu-item-profile" class="menu-item menu-item-profile">'.
-		'<a class="page-item-'.sanitize_title($text).'" href="'.admin_url( 'profile.php' ).'">'.
+		'<a class="page-item-profile" href="'.admin_url( 'profile.php' ).'">'.
 		get_option('red_profile_text', 'Profile').'</a></li>';
 	
 	$items = (get_option('red_profile_position','false')=='true'?true:false)
@@ -340,7 +360,7 @@ function red_activate_pages_profile($ul, $args)
 function red_change_profile_url( $url )
 {
 	if (strpos($url, 'profile.php')===false) return $url;
-	return red_change_url($url, false, 'profile');
+	return remove_query_arg('redirect', red_change_url($url, false, 'profile'));
 }
 
 /**
@@ -402,6 +422,16 @@ redrokk_metabox_class::getInstance('loginsettings', array(
 			'options'	=> array(
 				'true'	=> 'Yes, this menu button should pop open a login area',
 			),
+		),
+		array(
+			'name' 	=> 'Popup Template',
+			'id' 	=> 'red_popup_template',
+			'type' 	=> 'select',
+			'options'	=> array(
+				'red_simple_popup'	=> 'Simple White',
+				'red_white_popup'	=> 'White Clean',
+			),
+			'default' 	=> 'red_simple_popup',
 		),
 		array(
 			'name' 	=> 'Redirect on Login',
@@ -526,8 +556,9 @@ function red_change_login_url( $url, $redirect = false )
 {
 	$specifically = strpos($url, 'action=login') !== false;
 	$not = strpos($url, 'action=') === false;
+	$noother = strpos($url, 'key=') === false && strpos($url, 'resetpass') === false;
 	
-	return $specifically || $not
+	return $specifically || $not || $noother
 		? red_change_url($url, $redirect, 'login')
 		: $url;
 }
@@ -544,10 +575,17 @@ function red_login_popup_script()
 	
 	wp_enqueue_script( 
 		'red_login_popup',
-		plugin_dir_url( __file__ ).'/popup.js',
+		plugin_dir_url( __file__ ).'js/popup.js',
 		array('jquery-ui-dialog'), 
-		'1', 
+		'0.1', 
 		true 
+	);
+	
+	wp_enqueue_style( 
+		'red_login_style',
+		plugin_dir_url( __file__ ).'css/style.css',
+		array(), 
+		'0.1'
 	);
 }
 function red_footer()
@@ -555,10 +593,14 @@ function red_footer()
 	if (is_admin()) return;
 	if (!get_option('red_login_popup', false)) return;
 	
+	// load a custom override form the template
 	if ($custom = locate_template(array('red_login_popup.php'))) {
 		return load_template($custom);
 	}
-	return load_template( dirname(__file__).DIRECTORY_SEPARATOR.'red_login_popup.php' );
+	
+	$template = get_option('red_popup_template', 'red_simple_popup');
+	$html = load_template( dirname(__file__).DS.'views'.DS."$template.php" );
+	return $html;
 }
 
 /**
@@ -650,13 +692,9 @@ function get_logout_redirect_url( $url = false )
 function red_activate_menu_logout($items, $args)
 {
 	$locations = get_nav_menu_locations();
-	$menu_slug = ($args->menu
-		? $args->menu
-		: (isset($locations[ $args->theme_location ])
-			?  wp_get_nav_menu_object( $locations[ $args->theme_location ] )->slug
-			: ''
-		)
-	);
+	$menu_slug = isset($args->theme_location) && isset($locations[$args->theme_location])
+		? wp_get_nav_menu_object( $locations[ $args->theme_location ] )->slug
+		: $args->menu;
 	
 	if (!get_option('red_logout_button', false)) return $items;
 	if (get_option('red_logout_menu', false) !== $menu_slug) return $items;
@@ -814,4 +852,175 @@ function red_change_url( $url, $redirect = false, $action = 'register' )
 	return $permalink;
 }
 
+/**
+ * Method accepts the ajax submission, sends the user a lost password email and 
+ * returns the appropriate information to the form.
+ * 
+ */
+function red_lostpassword()
+{
+	// initializing
+	$login = redrokk_login_class::getInstance();
+	$errors = $login->retrieve_password();
+	
+	if (!is_wp_error( $errors )) {
+		$results = array('action' => 'success');
+		
+	} elseif ($errors->get_error_messages()) {
+		$msgs = $errors->get_error_messages();
+		if (is_array($msgs)) {
+			$msgs = implode(' ',$msgs);
+		}
+		
+		$results = array('error' => $msgs);
+	}
+	
+	echo json_encode($results);
+	die();
+}
+
+/**
+ * Method logs in user
+ * 
+ */
+function red_login_ajax()
+{
+	// initializing
+	$login = redrokk_login_class::getInstance();
+	$errors = $login->login($_POST['log'], $_POST['pwd']);
+	
+	if (!is_wp_error( $errors )) {
+		$page_id = get_option("red_login_page", '0');
+		
+		ob_start();
+		$redirect = apply_filters('onJavascriptLogin', get_permalink($page_id));
+		$javascript = ob_get_clean();
+		
+		$results = array(
+			'action' 		=> 'success',
+			'redirect'		=> $redirect,
+			'javascript' 	=> $javascript
+		);
+		
+	} elseif ($errors->get_error_messages()) {
+		$msgs = $errors->get_error_messages();
+		if (is_array($msgs)) {
+			$msgs = implode(' ',$msgs);
+		}
+		
+		$results = array('error' => $msgs);
+	}
+	
+	echo json_encode($results);
+	die();
+}
+
+/**
+ * Method accepts the ajax submission, registers the user then returns the appropriate
+ * user information
+ * 
+ */
+function red_login_registration()
+{
+	$login = redrokk_login_class::getInstance();
+	
+	$user_login = $_REQUEST['user_login'];
+	$user_email = $_REQUEST['user_email'];
+	$errors = $login->register_new_user($user_login, $user_email);
+	
+	if ( !is_wp_error($errors) ) {
+		$redirect_to = !empty( $_REQUEST['redirect_to'] ) ? $_REQUEST['redirect_to'] : add_query_arg('checkemail', 'registered', $login->getLoginUrl('lostpassword&error=invalidkey'));
+		$results = array('redirect'=>$redirect_to, 'userid'=>$errors);
+	}
+	elseif ($errors->get_error_messages()) {
+		$msgs = $errors->get_error_messages();
+		if (is_array($msgs)) {
+			$msgs = implode(' ',$msgs);
+		}
+		
+		$results = array('error' => $msgs);
+	}
+	
+	echo json_encode($results);
+	die();
+}
+
+/**
+ * Function grabs the users facebook avatar and saves it to their profile
+ *
+ * @param string $avatar
+ * @param int|string $id_or_email
+ * @param int|string $size
+ * @return string
+ */
+function facebook_get_avatar($avatar, $id_or_email, $size = '35')
+{
+
+	if ( is_numeric($id_or_email) ) {
+		$id = (int) $id_or_email;
+
+	} elseif ( is_object($id_or_email) && isset($id_or_email->ID) ) {
+		$id = (int) $id_or_email->ID;
+
+	} else {
+		$user = get_user_by('email', $id_or_email);
+		$id = (int) $user->ID;
+	}
+
+	$id = absint($id);
+	$src = get_user_meta($id, 'redrokk_get_avatar', true);
+
+	if (!$src || strpos($src, 'graph.facebook')!==false)
+	{
+		$fbuid = get_user_meta($id, 'fbuid', true);
+		if ($fbuid)
+		{
+			$src = get_facebook_avatar($fbuid);
+			if ($src) {
+				update_user_meta($id, 'redrokk_get_avatar', $src);
+			}
+		}
+	}
+
+	if ($src) {
+		return '<img src="'.$src.'" class="avatar avatar-'.$size.' photo" height="'.$size.'px" width="'.$size.'px">';
+	}
+
+	return $avatar;
+}
+
+/**
+ * 
+ * @param unknown_type $fbuid
+ */
+function get_facebook_avatar( $fbuid )
+{
+	$url = "http://graph.facebook.com/{$fbuid}/picture?type=square";
+	$src = get_redirected_url($url);
+	
+	return $src;
+}
+
+/**
+ * Function grabs the facebook avatar
+ * 
+ * @param string $http
+ */
+function get_redirected_url( $http )
+{
+	$ch_url = curl_init();
+	curl_setopt($ch_url, CURLOPT_URL, $http); //your first url
+	curl_setopt($ch_url, CURLOPT_USERAGENT, 'AppleWebKit/530.5 (KHTML, like Gecko) Chrome/2.0.172.39 Safari/530.5');
+	curl_setopt($ch_url, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt($ch_url, CURLOPT_HEADER, 1);
+	curl_setopt($ch_url, CURLOPT_NOBODY, 1); //we don't need to recieve the body of response
+	$headers = curl_exec($ch_url);
+	curl_close ($ch_url);
+	
+	$pattern = '`.*?((http)://[\w#$&+,\/:;=?@.-]+)[^\w#$&+,\/:;=?@.-]*?`i'; //this regexp finds your url
+	if (preg_match_all($pattern,$headers,$matches))
+		$url = $matches[1][0]; //your second url
+
+	return $url;
+}
 

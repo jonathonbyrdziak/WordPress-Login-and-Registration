@@ -90,7 +90,7 @@ class redrokk_login_class
 		// validate action so as to default to the login screen
 		if ( !in_array($this->action, array('logoutconfirm', 'logout', 'lostpassword', 
 		'retrievepassword', 'resetpass', 'rp', 'register', 'login','confirmation','checkemail'), true) 
-		&& false === has_filter('login_form_' . $action) )
+		&& false === has_filter('login_form_' . $this->action) )
 			$this->action = 'login';
 		
 		$this->login_id = get_option('redrokk_login_class::login_page_id', false);
@@ -110,11 +110,14 @@ class redrokk_login_class
 	{
 		// initializing
 		$http_post = (!empty($_REQUEST) 
-				&& (isset($_REQUEST['user_login']) 
-				|| isset($_REQUEST['pass1'])
-				|| isset($_REQUEST['log'])
-				|| isset($_REQUEST['user_email'])
-			));
+				&& (
+					isset($_REQUEST['user_login']) 
+					|| isset($_REQUEST['pass1'])
+					|| isset($_REQUEST['log'])
+					|| isset($_REQUEST['user_email'])
+					)
+				&& !isset($_REQUEST['first_name'])
+			);
 		$this->errors = new WP_Error();
 		
 		if (!$this->action) return;
@@ -130,7 +133,7 @@ class redrokk_login_class
 			case 'logout' :
 				require_once ABSPATH.WPINC.'/pluggable.php';
 				wp_logout();
-				wp_redirect( $this->getLoginUrl('logoutconfirm') );
+				header( "Location: ".$_SERVER["HTTP_REFERER"] );
 				exit();
 			break;
 			
@@ -201,68 +204,11 @@ class redrokk_login_class
 			
 			case 'login' :
 				if (!$http_post) break;
-				$secure_cookie = '';
-				$interim_login = isset($_REQUEST['interim-login']);
-			
-				// If the user wants ssl but the session is not ssl, force a secure cookie.
-				if ( !empty($_POST['log']) && !force_ssl_admin() ) {
-					$user_name = sanitize_user($_POST['log']);
-					if ( $user = get_user_by('login', $user_name) ) {
-						if ( get_user_option('use_ssl', $user->ID) ) {
-							$secure_cookie = true;
-							force_ssl_admin(true);
-						}
-					}
-				}
 				
-				if ( isset( $_REQUEST['redirect_to'] ) ) {
-					$redirect_to = $_REQUEST['redirect_to'];
-					// Redirect to https if user wants ssl
-					if ( $secure_cookie && false !== strpos($redirect_to, 'wp-admin') )
-						$redirect_to = preg_replace('|^http://|', 'https://', $redirect_to);
-				} else {
-					$this->redirect = apply_filters('redrokk_login_class::redirect', $this->redirect);
-					$redirect_to = $this->redirect ?$this->redirect :site_url('/');
-				}
+				// Login the user
+				$this->errors = $this->login($_POST['log'], $_POST['pwd']);
 				
-				$reauth = empty($_REQUEST['reauth']) ? false : true;
 				
-				// If the user was redirected to a secure login form from a non-secure admin page, and secure login is required but secure admin is not, then don't use a secure
-				// cookie and redirect back to the referring non-secure admin page.  This allows logins to always be POSTed over SSL while allowing the user to choose visiting
-				// the admin via http or https.
-				if ( !$secure_cookie && is_ssl() && force_ssl_login() && !force_ssl_admin() && ( 0 !== strpos($redirect_to, 'https') ) && ( 0 === strpos($redirect_to, 'http') ) )
-					$secure_cookie = false;
-				
-				$user = wp_signon('', $secure_cookie);
-				
-				$redirect_to = apply_filters('login_redirect', $redirect_to, isset( $_REQUEST['redirect_to'] ) ? $_REQUEST['redirect_to'] : '', $user);
-				
-				if ( !is_wp_error($user) && !$reauth ) {
-					if ( $interim_login ) {
-						$message = '<p class="message">' . __('You have logged in successfully.') . '</p>';
-						 ?>
-						<script type="text/javascript">setTimeout( function(){window.close()}, 8000);</script>
-						<p class="alignright">
-						<input type="button" class="button-primary" value="<?php esc_attr_e('Close'); ?>" onclick="window.close()" /></p>
-						</div></body></html>
-						<?php return;
-					}
-					
-					if ( ( empty( $redirect_to ) || $redirect_to == 'wp-admin/' || $redirect_to == admin_url() ) ) {
-						
-						// If the user doesn't belong to a blog, send them to user admin. If the user can't edit posts, send them to their profile.
-						if ( is_multisite() && !get_active_blog_for_user($user->ID) && !is_super_admin( $user->ID ) )
-							$redirect_to = user_admin_url();
-						elseif ( is_multisite() && !$user->has_cap('read') )
-							$redirect_to = get_dashboard_url( $user->ID );
-						elseif ( !$user->has_cap('edit_posts') )
-							$redirect_to = admin_url('profile.php');
-					}
-					wp_safe_redirect($redirect_to);
-					exit();
-				}
-				
-				$this->errors = $user;
 				// Clear errors if loggedout is set.
 				if ( !empty($_GET['loggedout']) || $reauth )
 					$this->errors = new WP_Error();
@@ -291,6 +237,80 @@ class redrokk_login_class
 			
 			break;
 		}
+	}
+	
+	/**
+	 * 
+	 * @param string $username
+	 * @param string $password
+	 * @param bool $reauth
+	 * @param string $redirect_to
+	 * @return Ambigous <string, WP_Error, unknown, number, boolean>
+	 */
+	function login( $username, $password, $reauth = false, $redirect_to = false )
+	{
+		// initializing
+		$this->errors = new WP_Error();
+		$secure_cookie = '';
+		$creds = array();
+		$creds['user_login'] = $username;
+		$creds['user_password'] = $password;
+		$creds['remember'] = true;
+		
+		if ( !$username || !strlen($username) )
+			$this->errors->add('empty_username', __('<strong>ERROR</strong>: Enter a username or e-mail address.'));
+			
+		if ( !$password || !strlen($password) )
+			$this->errors->add('empty_password', __('<strong>ERROR</strong>: Enter a password.'));
+		
+		if ( $this->errors->get_error_code() )
+			return $this->errors;
+		
+		// If the user wants ssl but the session is not ssl, force a secure cookie.
+		if ( $username && !force_ssl_admin() ) {
+			$user_name = sanitize_user($username);
+			if ( $user = get_user_by('login', $user_name) ) {
+				if ( get_user_option('use_ssl', $user->ID) ) {
+					$secure_cookie = true;
+					force_ssl_admin(true);
+				}
+			}
+		}
+		
+		// If the user was redirected to a secure login form from a non-secure admin page, and secure login is required but secure admin is not, then don't use a secure
+		// cookie and redirect back to the referring non-secure admin page.  This allows logins to always be POSTed over SSL while allowing the user to choose visiting
+		// the admin via http or https.
+		if ( !$secure_cookie && is_ssl() && force_ssl_login() && !force_ssl_admin() 
+		&& ( 0 !== strpos($redirect_to, 'https') ) && ( 0 === strpos($redirect_to, 'http') ) )
+			$secure_cookie = false;
+		
+		$user = wp_signon($creds, $secure_cookie);
+		
+		// handle the redirect
+		if ( !is_wp_error($user) && !$reauth && $redirect_to ) {
+			// Redirect to https if user wants ssl
+			if ( $secure_cookie && false !== strpos($redirect_to, 'wp-admin') )
+				$redirect_to = preg_replace('|^http://|', 'https://', $redirect_to);
+			
+			$redirect_to = apply_filters('redrokk_login_class::redirect', $redirect_to);
+			if ( ( empty( $redirect_to ) || $redirect_to == 'wp-admin/' || $redirect_to == admin_url() ) ) {
+				
+				// If the user doesn't belong to a blog, send them to user admin. If the user can't edit posts, send them to their profile.
+				if ( is_multisite() && !get_active_blog_for_user($user->ID) && !is_super_admin( $user->ID ) )
+					$redirect_to = user_admin_url();
+				elseif ( is_multisite() && !$user->has_cap('read') )
+					$redirect_to = get_dashboard_url( $user->ID );
+				elseif ( !$user->has_cap('edit_posts') )
+					$redirect_to = admin_url('profile.php');
+			}
+			
+			if ($redirect_to) {
+				wp_safe_redirect($redirect_to);
+				exit();
+			}
+		}
+		
+		return $user;
 	}
 	
 	/**
@@ -368,8 +388,7 @@ class redrokk_login_class
 			} 
 			
 		?>
-		<form name="lostpasswordform" id="lostpasswordform" method="post"
-	 	action="<?php echo esc_url( $this->getLoginUrl('lostpassword') ); ?>">
+		<form name="lostpasswordform" id="lostpasswordform" method="post"action="<?php echo esc_url( $this->getLoginUrl('lostpassword') ); ?>">
 			<p>
 				<label for="user_login">
 					<span class="login-label login-username-email">
@@ -377,22 +396,27 @@ class redrokk_login_class
 					</span>
 				</label>
 				
-				<input type="text" name="user_login" id="user_login" class="input red_login_input" value="<?php echo esc_attr($user_login); ?>" size="20" tabindex="10" />
+				<input type="text" placeholder="<?php _e('Username or E-mail:') ?>" name="user_login" id="user_login" class="input red_login_input" value="<?php echo esc_attr($user_login); ?>" size="20" tabindex="10" />
 			</p>
 			
 			<?php do_action('lostpassword_form'); ?>
+			<div class="signuperror"></div>
+			
 			<input type="hidden" name="redirect_to" value="<?php echo esc_attr( $redirect_to ); ?>" class="red_login_hidden"/>
 			
 			<p class="submit">
-				<input type="submit" name="wp-submit" id="wp-submit" class="button-primary red_login_button" value="<?php esc_attr_e('Get New Password'); ?>" tabindex="100" />
+				<input type="submit" name="wp-submit" id="wp-submit" class="button radius red_login_button" 
+				value="<?php esc_attr_e('Get New Password'); ?>" tabindex="100" />
+				<img id="lostpasswordloader" style="margin: 0px 0px 0px 10px;display:none;" src="data:image/gif;base64,R0lGODlhEAAQAPQAAP///z1ipvn6+2eEuaGz00FlqFl5s9/l8LzJ4E1vrZaqzoqgyeru9LC/2tPb6nOOvn6WwwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh/hpDcmVhdGVkIHdpdGggYWpheGxvYWQuaW5mbwAh+QQJCgAAACwAAAAAEAAQAAAFUCAgjmRpnqUwFGwhKoRgqq2YFMaRGjWA8AbZiIBbjQQ8AmmFUJEQhQGJhaKOrCksgEla+KIkYvC6SJKQOISoNSYdeIk1ayA8ExTyeR3F749CACH5BAkKAAAALAAAAAAQABAAAAVoICCKR9KMaCoaxeCoqEAkRX3AwMHWxQIIjJSAZWgUEgzBwCBAEQpMwIDwY1FHgwJCtOW2UDWYIDyqNVVkUbYr6CK+o2eUMKgWrqKhj0FrEM8jQQALPFA3MAc8CQSAMA5ZBjgqDQmHIyEAIfkECQoAAAAsAAAAABAAEAAABWAgII4j85Ao2hRIKgrEUBQJLaSHMe8zgQo6Q8sxS7RIhILhBkgumCTZsXkACBC+0cwF2GoLLoFXREDcDlkAojBICRaFLDCOQtQKjmsQSubtDFU/NXcDBHwkaw1cKQ8MiyEAIfkECQoAAAAsAAAAABAAEAAABVIgII5kaZ6AIJQCMRTFQKiDQx4GrBfGa4uCnAEhQuRgPwCBtwK+kCNFgjh6QlFYgGO7baJ2CxIioSDpwqNggWCGDVVGphly3BkOpXDrKfNm/4AhACH5BAkKAAAALAAAAAAQABAAAAVgICCOZGmeqEAMRTEQwskYbV0Yx7kYSIzQhtgoBxCKBDQCIOcoLBimRiFhSABYU5gIgW01pLUBYkRItAYAqrlhYiwKjiWAcDMWY8QjsCf4DewiBzQ2N1AmKlgvgCiMjSQhACH5BAkKAAAALAAAAAAQABAAAAVfICCOZGmeqEgUxUAIpkA0AMKyxkEiSZEIsJqhYAg+boUFSTAkiBiNHks3sg1ILAfBiS10gyqCg0UaFBCkwy3RYKiIYMAC+RAxiQgYsJdAjw5DN2gILzEEZgVcKYuMJiEAOwAAAAAAAAAAAA=="/>
 			</p>
 		</form>
 		
 		<p id="nav">
-		<a href="<?php echo esc_url( $this->getLoginUrl() ); ?>"><?php _e('Log in') ?></a>
-		<?php if ( get_option( 'users_can_register' ) ) : ?>
-		 | <a href="<?php echo esc_url( $this->getLoginUrl('register') ); ?>"><?php _e( 'Register' ); ?></a>
-		<?php endif; ?>
+			<a href="<?php echo esc_url( $this->getLoginUrl() ); ?>"><?php _e('Log in') ?></a>
+			
+			<?php if ( get_option( 'users_can_register' ) ) : ?>
+			 | <a href="<?php echo esc_url( $this->getLoginUrl('register') ); ?>"><?php _e( 'Register' ); ?></a>
+			<?php endif; ?>
 		</p>
 		
 		<?php
@@ -423,12 +447,12 @@ class redrokk_login_class
 			<input type="hidden" id="user_login" value="<?php echo esc_attr( $_GET['login'] ); ?>" autocomplete="off" />
 		
 			<p>
-				<label for="pass1"><span class="login-label login-new-password"><?php _e('New password') ?></span></label>
-				<input type="password" name="pass1" id="pass1" class="input red_login_input" size="20" value="" autocomplete="off" />
+				<label for="pass1" class="login-label login-new-password"><span><?php _e('New password') ?></span></label>
+				<input type="password" placeholder="<?php _e('New password') ?>" name="pass1" id="pass1" class="input red_login_input" size="20" value="" autocomplete="off" />
 			</p>
 			<p>
-				<label for="pass2"><span class="login-label login-confirm-password"><?php _e('Confirm new password') ?></span></label>
-				<input type="password" name="pass2" id="pass2" class="input red_login_input" size="20" value="" autocomplete="off" />
+				<label for="pass2" class="login-label login-confirm-password"><span><?php _e('Confirm new password') ?></span></label>
+				<input type="password" placeholder="<?php _e('Confirm new password') ?>" name="pass2" id="pass2" class="input red_login_input" size="20" value="" autocomplete="off" />
 			</p>
 		
 			<div id="pass-strength-result" class="hide-if-no-js"><span class="login-label login-strength"><?php _e('Strength indicator'); ?></span></div>
@@ -436,7 +460,8 @@ class redrokk_login_class
 		
 			<br class="clear" />
 			<p class="submit">
-				<input type="submit" name="wp-submit" id="wp-submit" class="button-primary red_login_button" value="<?php esc_attr_e('Reset Password'); ?>" tabindex="100" />
+				<input type="submit" name="wp-submit" id="wp-submit" class="button radius red_login_button" value="<?php esc_attr_e('Reset Password'); ?>" tabindex="100" />
+				<img id="resetpwloader" style="margin: 0px 0px 0px 10px;display:none;" src="data:image/gif;base64,R0lGODlhEAAQAPQAAP///z1ipvn6+2eEuaGz00FlqFl5s9/l8LzJ4E1vrZaqzoqgyeru9LC/2tPb6nOOvn6WwwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh/hpDcmVhdGVkIHdpdGggYWpheGxvYWQuaW5mbwAh+QQJCgAAACwAAAAAEAAQAAAFUCAgjmRpnqUwFGwhKoRgqq2YFMaRGjWA8AbZiIBbjQQ8AmmFUJEQhQGJhaKOrCksgEla+KIkYvC6SJKQOISoNSYdeIk1ayA8ExTyeR3F749CACH5BAkKAAAALAAAAAAQABAAAAVoICCKR9KMaCoaxeCoqEAkRX3AwMHWxQIIjJSAZWgUEgzBwCBAEQpMwIDwY1FHgwJCtOW2UDWYIDyqNVVkUbYr6CK+o2eUMKgWrqKhj0FrEM8jQQALPFA3MAc8CQSAMA5ZBjgqDQmHIyEAIfkECQoAAAAsAAAAABAAEAAABWAgII4j85Ao2hRIKgrEUBQJLaSHMe8zgQo6Q8sxS7RIhILhBkgumCTZsXkACBC+0cwF2GoLLoFXREDcDlkAojBICRaFLDCOQtQKjmsQSubtDFU/NXcDBHwkaw1cKQ8MiyEAIfkECQoAAAAsAAAAABAAEAAABVIgII5kaZ6AIJQCMRTFQKiDQx4GrBfGa4uCnAEhQuRgPwCBtwK+kCNFgjh6QlFYgGO7baJ2CxIioSDpwqNggWCGDVVGphly3BkOpXDrKfNm/4AhACH5BAkKAAAALAAAAAAQABAAAAVgICCOZGmeqEAMRTEQwskYbV0Yx7kYSIzQhtgoBxCKBDQCIOcoLBimRiFhSABYU5gIgW01pLUBYkRItAYAqrlhYiwKjiWAcDMWY8QjsCf4DewiBzQ2N1AmKlgvgCiMjSQhACH5BAkKAAAALAAAAAAQABAAAAVfICCOZGmeqEgUxUAIpkA0AMKyxkEiSZEIsJqhYAg+boUFSTAkiBiNHks3sg1ILAfBiS10gyqCg0UaFBCkwy3RYKiIYMAC+RAxiQgYsJdAjw5DN2gILzEEZgVcKYuMJiEAOwAAAAAAAAAAAA=="/>
 			</p>
 		</form>
 		
@@ -475,33 +500,35 @@ class redrokk_login_class
 			?>
 		<form name="registerform" autocomplete="off" id="registerform" action="<?php echo esc_url( $this->getLoginUrl('register') ); ?>" method="post">
 			<p>
-				<label for="user_login">
-					<span class="login-label login-username"><?php _e('Username') ?></span>
+				<label for="user_login" class="login-label login-username">
+					<span><?php _e('Username') ?></span>
 				</label>
 				
-				<input type="text" name="user_login" id="user_login" class="input red_login_input" size="20"value="<?php echo esc_attr(stripslashes($user_login)); ?>" tabindex="10" />
+				<input type="text" placeholder="<?php _e('Username') ?>" name="user_login" id="user_login" class="input red_login_input" size="20"value="<?php echo esc_attr(stripslashes($user_login)); ?>" tabindex="10" />
 			</p>
 			<p>
-				<label for="user_email">
-					<span class="login-label login-email"><?php _e('E-mail') ?></span>
+				<label for="user_email" class="login-label login-email">
+					<span><?php _e('E-mail') ?></span>
 				</label>
 				
-				<input type="email" name="user_email" id="user_email" class="input red_login_input" size="25" value="<?php echo esc_attr(stripslashes($user_email)); ?>" tabindex="20" />
+				<input type="email" placeholder="<?php _e('E-mail') ?>" name="user_email" id="user_email" class="input red_login_input" size="25" value="<?php echo esc_attr(stripslashes($user_email)); ?>" tabindex="20" />
 			</p>
 			<?php do_action('register_form'); ?>
 			
 			<p id="reg_passmail"><?php _e('A password will be e-mailed to you.') ?></p>
 			<br class="clear" />
+			<div class="signuperror"></div>
 			
 			<input type="hidden" name="redirect_to" value="<?php echo esc_attr( $redirect_to ); ?>" />
 			<p class="submit">
-				<input type="submit" name="wp-submit" id="wp-submit" class="button-primary register-button red_login_button" 
-				value="<?php esc_attr_e('Register'); ?>" tabindex="100" />
+				<input type="submit" name="wp-submit" id="wp-submit" class="button radius button-primary register-button red_login_button" value="<?php esc_attr_e('Register'); ?>" tabindex="100" />
+				<img id="registerloader" style="margin: 0px 0px 0px 10px;display:none;" src="data:image/gif;base64,R0lGODlhEAAQAPQAAP///z1ipvn6+2eEuaGz00FlqFl5s9/l8LzJ4E1vrZaqzoqgyeru9LC/2tPb6nOOvn6WwwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh/hpDcmVhdGVkIHdpdGggYWpheGxvYWQuaW5mbwAh+QQJCgAAACwAAAAAEAAQAAAFUCAgjmRpnqUwFGwhKoRgqq2YFMaRGjWA8AbZiIBbjQQ8AmmFUJEQhQGJhaKOrCksgEla+KIkYvC6SJKQOISoNSYdeIk1ayA8ExTyeR3F749CACH5BAkKAAAALAAAAAAQABAAAAVoICCKR9KMaCoaxeCoqEAkRX3AwMHWxQIIjJSAZWgUEgzBwCBAEQpMwIDwY1FHgwJCtOW2UDWYIDyqNVVkUbYr6CK+o2eUMKgWrqKhj0FrEM8jQQALPFA3MAc8CQSAMA5ZBjgqDQmHIyEAIfkECQoAAAAsAAAAABAAEAAABWAgII4j85Ao2hRIKgrEUBQJLaSHMe8zgQo6Q8sxS7RIhILhBkgumCTZsXkACBC+0cwF2GoLLoFXREDcDlkAojBICRaFLDCOQtQKjmsQSubtDFU/NXcDBHwkaw1cKQ8MiyEAIfkECQoAAAAsAAAAABAAEAAABVIgII5kaZ6AIJQCMRTFQKiDQx4GrBfGa4uCnAEhQuRgPwCBtwK+kCNFgjh6QlFYgGO7baJ2CxIioSDpwqNggWCGDVVGphly3BkOpXDrKfNm/4AhACH5BAkKAAAALAAAAAAQABAAAAVgICCOZGmeqEAMRTEQwskYbV0Yx7kYSIzQhtgoBxCKBDQCIOcoLBimRiFhSABYU5gIgW01pLUBYkRItAYAqrlhYiwKjiWAcDMWY8QjsCf4DewiBzQ2N1AmKlgvgCiMjSQhACH5BAkKAAAALAAAAAAQABAAAAVfICCOZGmeqEgUxUAIpkA0AMKyxkEiSZEIsJqhYAg+boUFSTAkiBiNHks3sg1ILAfBiS10gyqCg0UaFBCkwy3RYKiIYMAC+RAxiQgYsJdAjw5DN2gILzEEZgVcKYuMJiEAOwAAAAAAAAAAAA=="/>
 			</p>
 		</form>
 		
 		<p id="nav"> 
-			<a class="login-login-link login-link-registration" href="<?php echo esc_url( $this->getLoginUrl() ); ?>"><?php _e( 'Log in' ); ?></a>
+			<a class="login-login-link login-link-registration" href="<?php echo esc_url( $this->getLoginUrl() ); ?>">
+				<?php _e( 'Log in' ); ?></a>
 			
 			<span class="login-spacer"> | </span>
 			
@@ -543,7 +570,7 @@ class redrokk_login_class
 		
 			if ( isset($_POST['log']) )
 				$user_login = ( 'incorrect_password' == $this->errors->get_error_code() || 'empty_password' == $this->errors->get_error_code() ) ? esc_attr(stripslashes($_POST['log'])) : '';
-			$rememberme = ! empty( $_POST['rememberme'] );
+			$remember = ! empty( $_POST['remember'] );
 			
 			if (!empty($this->notices)) {
 				?><p class="login-notice notice">
@@ -570,38 +597,41 @@ class redrokk_login_class
 			?>
 		<form name="loginform" autocomplete="off" id="loginform" action="<?php echo esc_url( $this->getLoginUrl() ); ?>" method="post">
 			<p>
-				<label for="user_login">
-					<span class="login-label login-username">
+				<label for="user_login" class="login-label login-username" onclick="javascript:jQuery('#user_login').focus();">
+					<span>
 						<?php _e('Username') ?>
 					</span>
 				</label>
 				
-				<input type="text" name="log" id="user_login" class="input red_login_input" value="<?php echo esc_attr($user_login); ?>" size="20" tabindex="10" />
+				<input type="text" placeholder="<?php _e('Username') ?>" name="log" id="user_login" class="input red_login_input" value="<?php echo esc_attr($user_login); ?>" size="20" tabindex="10" />
 			</p>
 			<p>
-				<label for="user_pass">
-					<span class="login-label login-password">
+				<label for="user_pass" class="login-label login-password">
+					<span>
 						<?php _e('Password') ?>
 					</span>
 				</label>
 				
-				<input type="password" name="pwd" id="user_pass" class="input red_login_input" value="" size="20" tabindex="20" />
+				<input type="password" placeholder="<?php _e('Password') ?>" name="pwd" id="user_pass" class="input red_login_input" value="" size="20" tabindex="20" />
 			</p>
 			<?php do_action('login_form'); ?>
 			
 			<p class="forgetmenot">
-				<label for="rememberme">
-					<input name="rememberme" type="checkbox" id="rememberme" value="forever" tabindex="90" <?php checked( $rememberme ); ?> class="red_login_checkbox" />
+				<label for="remember">
+					<input name="remember" type="checkbox" id="remember" value="forever" tabindex="90" <?php checked( $remember ); ?> class="red_login_checkbox" />
 					
 					<span class="login-label login-rememberme">
 						<?php esc_attr_e('Remember Me'); ?>
 					</span>
 				</label>
 			</p>
-			
+			<div class="signuperror"></div>
+						
 			<p class="submit">
 				<input type="submit" name="wp-submit" id="wp-submit"  tabindex="100" 
-				class="button-primary red_login_button login-button" value="<?php esc_attr_e('Log In'); ?>"/>
+				class="button radius red_login_button login-button" value="<?php esc_attr_e('Log In'); ?>"/>
+				<img id="loginformloader" style="margin: 0px 0px 0px 10px;display:none;" src="data:image/gif;base64,R0lGODlhEAAQAPQAAP///z1ipvn6+2eEuaGz00FlqFl5s9/l8LzJ4E1vrZaqzoqgyeru9LC/2tPb6nOOvn6WwwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh/hpDcmVhdGVkIHdpdGggYWpheGxvYWQuaW5mbwAh+QQJCgAAACwAAAAAEAAQAAAFUCAgjmRpnqUwFGwhKoRgqq2YFMaRGjWA8AbZiIBbjQQ8AmmFUJEQhQGJhaKOrCksgEla+KIkYvC6SJKQOISoNSYdeIk1ayA8ExTyeR3F749CACH5BAkKAAAALAAAAAAQABAAAAVoICCKR9KMaCoaxeCoqEAkRX3AwMHWxQIIjJSAZWgUEgzBwCBAEQpMwIDwY1FHgwJCtOW2UDWYIDyqNVVkUbYr6CK+o2eUMKgWrqKhj0FrEM8jQQALPFA3MAc8CQSAMA5ZBjgqDQmHIyEAIfkECQoAAAAsAAAAABAAEAAABWAgII4j85Ao2hRIKgrEUBQJLaSHMe8zgQo6Q8sxS7RIhILhBkgumCTZsXkACBC+0cwF2GoLLoFXREDcDlkAojBICRaFLDCOQtQKjmsQSubtDFU/NXcDBHwkaw1cKQ8MiyEAIfkECQoAAAAsAAAAABAAEAAABVIgII5kaZ6AIJQCMRTFQKiDQx4GrBfGa4uCnAEhQuRgPwCBtwK+kCNFgjh6QlFYgGO7baJ2CxIioSDpwqNggWCGDVVGphly3BkOpXDrKfNm/4AhACH5BAkKAAAALAAAAAAQABAAAAVgICCOZGmeqEAMRTEQwskYbV0Yx7kYSIzQhtgoBxCKBDQCIOcoLBimRiFhSABYU5gIgW01pLUBYkRItAYAqrlhYiwKjiWAcDMWY8QjsCf4DewiBzQ2N1AmKlgvgCiMjSQhACH5BAkKAAAALAAAAAAQABAAAAVfICCOZGmeqEgUxUAIpkA0AMKyxkEiSZEIsJqhYAg+boUFSTAkiBiNHks3sg1ILAfBiS10gyqCg0UaFBCkwy3RYKiIYMAC+RAxiQgYsJdAjw5DN2gILzEEZgVcKYuMJiEAOwAAAAAAAAAAAA=="/>
+		
 		<?php	if ( $interim_login ) { ?>
 				<input type="hidden" name="interim-login" value="1" />
 		<?php	} else { ?>
@@ -623,12 +653,14 @@ class redrokk_login_class
 				
 				<span class="login-spacer"> | </span>
 				
-				<a class="login-lostpw-link" href="<?php echo esc_url( $this->getLoginUrl('lostpassword') ); ?>" title="<?php esc_attr_e( 'Password Lost and Found' ); ?>">
+				<a class="login-lostpw-link" href="<?php echo esc_url( $this->getLoginUrl('lostpassword') ); ?>" 
+				title="<?php esc_attr_e( 'Password Lost and Found' ); ?>">
 					<?php _e( 'Lost your password?' ); ?>
 				</a>
 				
 			<?php else : ?>
-				<a href="<?php echo esc_url( $this->getLoginUrl('lostpassword') ); ?>" title="<?php esc_attr_e( 'Password Lost and Found' ); ?>">
+				<a href="<?php echo esc_url( $this->getLoginUrl('lostpassword') ); ?>" 
+				title="<?php esc_attr_e( 'Password Lost and Found' ); ?>">
 					<?php _e( 'Lost your password?' ); ?>
 				</a>
 			<?php endif; ?>
@@ -731,8 +763,7 @@ class redrokk_login_class
 		)); 
 		
 		$lc = redrokk_login_class::getInstance();
-		$display = $lc->getDisplay($atts);
-		return str_replace(array("\r","\n"), '', $display);
+		return $lc->getDisplay($atts);
 	}
 	
 	/**
@@ -858,10 +889,12 @@ class redrokk_login_class
 	
 		if ( empty( $_POST['user_login'] ) ) {
 			$this->errors->add('empty_username', __('<strong>ERROR</strong>: Enter a username or e-mail address.'));
+		
 		} else if ( strpos( $_POST['user_login'], '@' ) ) {
 			$user_data = get_user_by( 'email', trim( $_POST['user_login'] ) );
 			if ( empty( $user_data ) )
 				$this->errors->add('invalid_email', __('<strong>ERROR</strong>: There is no user registered with that email address.'));
+		
 		} else {
 			$login = trim($_POST['user_login']);
 			$user_data = get_user_by('login', $login);
@@ -896,6 +929,7 @@ class redrokk_login_class
 			// Generate something random for a key...
 			$key = wp_generate_password(20, false);
 			do_action('retrieve_password_key', $user_login, $key);
+			
 			// Now insert the new md5 key into the db
 			$wpdb->update($wpdb->users, array('user_activation_key' => $key), array('user_login' => $user_login));
 		}
@@ -919,8 +953,9 @@ class redrokk_login_class
 		$message = apply_filters('retrieve_password_message', $message, $key);
 	
 		if ( $message && !wp_mail($user_email, $title, $message) )
-			wp_die( __('The e-mail could not be sent.') . "<br />\n" . __('Possible reason: your host may have disabled the mail() function...') );
-	
+			$this->errors->add('nomail', __('The e-mail could not be sent.') . "<br />\n" 
+					. __('Possible reason: your host may have disabled the mail() function...') );
+		
 		return true;
 	}
 
@@ -1019,7 +1054,6 @@ class redrokk_login_class
 		}
 	
 		update_user_option( $user_id, 'default_password_nag', true, true ); //Set up the Password change nag.
-	
 		wp_new_user_notification( $user_id, $user_pass );
 	
 		return $user_id;

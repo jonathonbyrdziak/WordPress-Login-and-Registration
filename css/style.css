@@ -1,0 +1,366 @@
+/**  RED ROKK SIMPLE LOGIN STYLE
+**************************************************/
+.red_simple_popup {
+	z-index:10000!important;
+	background: white;
+	border: 1px solid #E5E5E5;
+	-moz-box-shadow: rgba(200,200,200,0.7) 0 4px 10px -1px;
+	-webkit-box-shadow: rgba(200, 200, 200, 0.7) 0 4px 10px -1px;
+	box-shadow: rgba(200, 200, 200, 0.7) 0 4px 10px -1px;
+	padding: 20px;
+	
+	position: absolute!important;
+	top:50px!important;
+}
+.red_simple_popup .ui-dialog-titlebar {
+	position: absolute;
+	top: 0;
+	right: 5px;
+	font-size: 10px;
+}
+.red_simple_popup .prompt_close {
+	position: absolute;
+	top: 0;
+	right: 0;
+	cursor: pointer;
+	background: url(../images/prompt_close2.png) no-repeat top left;
+	width: 26px;
+	height: 26px;
+}
+.red_simple_popup .ui-dialog-titlebar-close {
+	position: absolute;
+	z-index: 10000;
+	right: -5px;
+	cursor: pointer;
+	background: url(../images/prompt_close2.png) no-repeat top left;
+	width: 26px;
+	height: 26px;
+	font-size:0;
+	color:transparent;
+}
+
+
+/**   WHITE LOGIN POPUP
+****************************************************************/
+.red_white_popup {
+	position: absolute!important;
+	top:50px!important;
+}
+.red_white_popup .loginpages {
+	position:absolute;
+	padding: 10px;
+	width: 498px; 
+	height: auto; 
+	background-color: white;
+	margin-top: 10px;
+	background: url(../images/prompt.png);
+	-moz-border-radius: 5px;
+	-webkit-border-radius: 5px;
+}
+.red_white_popup .login-label {
+	text-align:left;
+}
+.red_white_popup .signuperror {
+	color:red;
+	display:none;
+}
+.red_white_popup #nav {
+	display:none;
+}
+.red_white_popup ul {
+	list-style: none;
+}
+.red_white_popup #loginform p {
+	margin:0;
+}
+.red_white_popup .ui-dialog-buttonset {display:none;}
+.red_white_popup .prompt_interior {
+	padding: 25px;
+	border: 1px solid #999;
+	background: white;
+}
+
+.red_white_popup .prompt_header {
+	font-weight: bold;
+	font-size: 1.9em;
+	margin-bottom: 20px;
+}
+
+.red_white_popup .prompt_close {
+	position: absolute;
+	top: 0;
+	right: 0;
+	cursor: pointer;
+	background: url(../images/prompt_close2.png) no-repeat top left;
+	width: 26px;
+	height: 26px;
+}
+
+.red_white_popup #prompt_page_cover {
+	filter: alpha(opacity =   50);
+	opacity: .4;
+	position: fixed;
+	top: 0;
+	left: 0;
+	background: white;
+	z-index: 30;
+	height: 100%;
+	width: 100%;
+}
+
+.red_white_popup #prompt_calendar_export ul {
+	padding: 0 0 0 10px;
+	list-style: none;
+	font-size: 1.3em;
+}
+
+.red_white_popup #prompt_calendar_export li {
+	padding-left: 25px;
+	margin-bottom: 5px;
+	background: no-repeat 0 3px;
+}
+
+.red_white_popup #prompt_calendar_export li span {
+	font-weight: bold;
+	color: #0062c4;
+	cursor: pointer;
+}
+
+.red_white_popup .prompt_calendar_export_instructions {
+	padding: 0;
+	margin: 10px 0 25px 15px;
+	font-size: .9em;
+}
+
+.red_white_popup .prompt_calendar_export_instructions li {
+	padding: 0 0 0 5px !important;
+}
+
+.red_white_popup #prompt_calendar_export .text_input {
+	margin: 10px 0 10px 0;
+	width: 340px;
+	vertical-align: middle;
+}
+
+.red_white_popup #prompt_calendar_export_instructions_iphone .button_blue {
+	width: 50px;
+	height: 26px;
+	padding: 0;
+	line-height: 26px;
+	margin-left: 10px;
+	font-size: 1em;
+}
+
+.red_white_popup .prompt_sign_in_header {
+	font-weight: bold;
+	text-align: center;
+	font-size: 2.1em;
+	margin: 0 0 20px 0;
+	line-height: 150%;
+}
+
+.red_white_popup .prompt_sign_in_buttons {
+	margin: auto;
+	width: 365px;
+}
+
+.red_white_popup .prompt_sign_in_buttons li {
+	float: left;
+}
+
+.red_white_popup .prompt_sign_in_fields li {
+	float: left;
+	margin-right: 5px;
+}
+
+.red_white_popup .prompt_sign_in_fields input {
+	padding: 4px;
+	font-size: 1.2em;
+	color: gray;
+	width: 150px;
+}
+
+.red_white_popup .prompt_sign_in_options {
+	margin: 15px 0 5px 0;
+}
+
+.red_white_popup .prompt_sign_in_options li {
+	float: left;
+	margin-right: 5px;
+	font-size: .95em;
+}
+
+.red_white_popup #prompt_sign_in_submit_pending {	width: 20px;
+	height: 32px;
+}
+
+.red_white_popup #prompt_sign_in_notice {
+	padding: 10px 10px 10px 35px;
+	margin: 0 35px 15px 0;
+	-moz-border-radius: 5px;
+	-webkit-border-radius: 5px;
+}
+
+.red_white_popup #prompt_sign_in_create table {
+	width: 350px;
+	margin: auto;
+}
+
+.red_white_popup #prompt_sign_in_create table td {
+	text-align: left;
+}
+
+.red_white_popup #prompt_sign_in_create .text_input {
+	width: 200px;
+	font-size: 1.3em;
+}
+
+.red_white_popup #prompt_sign_in_create_submit_button {
+	cursor: pointer;
+	float: right;
+}
+
+.red_white_popup #prompt_sign_in_create_submit_pending {
+	float: right;
+	width: 24px;
+	height: 24px;
+	display: inline-block;
+	margin: 5px 10px 0 0;
+}
+
+.red_white_popup #prompt_sign_in_reset_email {
+	font-size: 1.5em;
+	float: left;
+	margin: 0 5px 0 70px;
+	padding: 7px;
+}
+
+.red_white_popup #prompt_sign_in_create_reset_button {
+	float: left;
+}
+
+.red_white_popup #prompt_plan_attendees .user_listing_subscription_toggle {
+	margin-right: 15px !important;
+}
+
+.red_white_popup #prompt_plan_attendees #users_load_more {
+	margin-right: 15px !important;
+}
+
+.red_white_popup #prompt_plan_comments .plan_comments_add_input_exterior {
+	width: 332px !important;
+}
+
+.red_white_popup #prompt_plan_comments .plan_comments_add_input {
+	width: 316px !important;
+}
+
+.red_white_popup #prompt_plan_place #plan_where {
+	margin-right: 0 !important;
+}
+
+.red_white_popup #prompt_user_categories_ul .category_listing_subscription_toggle {
+	margin-right: 15px !important;
+}
+
+.red_white_popup #prompt_notifications {
+	padding-right: 15px;
+}
+
+.red_white_popup #prompt_syndicate_plan_table_container {
+	background: #dadada;
+	padding: 1px;
+	margin-bottom: 15px;
+}
+
+.red_white_popup #prompt_syndicate_plan_table {
+	font-size: 1.5em;
+	background: white;
+	padding: 25px 15px 25px 15px;
+}
+
+.red_white_popup #prompt_syndicate_plan_table tr {
+	border: 1px solid white;
+	cursor: pointer;
+	background: #f3f3f3;
+}
+
+.red_white_popup #prompt_syndicate_plan_table tr:hover {
+	background: #ebf2f9;
+}
+
+.red_white_popup #prompt_syndicate_plan_table td {
+	padding: 10px;
+}
+
+.red_white_popup #prompt_syndicate_plan_table td:hover {
+	padding: 10px;
+}
+
+.red_white_popup #prompt_syndicate_plan_buttons li {
+	float: right;
+	margin: 0 0 0 10px;
+	cursor: pointer;
+}
+
+.red_white_popup #prompt_syndicate_plan_submit_pending {
+	width: 30px;
+	height: 30px;
+	position: absolute;
+	top: 20px;
+	right: 20px;
+}
+
+.red_white_popup .prompt_syndicate_plan_selected {
+	background: #eaf4fe !important;
+}
+
+.red_white_popup .prompt_syndicate_plan_selected .td3 {
+	background: #c5d8ee !important;
+}
+
+.red_white_popup #prompt_syndicate_plan_table tr:hover .td3 {
+	background: #c5d8ee !important;
+}
+
+.red_white_popup .prompt_syndicate_plan_selected input {
+	cursor: pointer;
+}
+
+.red_white_popup #prompt_syndicate_plan_save_text {
+	cursor: pointer;
+	font-size: .95em;
+}
+.red_white_popup .prompt_sign_in_options {
+	margin: 15px 0 5px 0;
+	list-style: none;
+}
+.red_white_popup .prompt_sign_in_options li {
+	float: left;
+	margin-right: 5px;
+	font-size: .95em;
+}
+.red_white_popup .ui-dialog-titlebar-close {
+	position: absolute;
+	top: 35px;
+	z-index: 10000;
+	right: 33px;
+	cursor: pointer;
+	background: url(../images/prompt_close2.png) no-repeat top left;
+	width: 26px;
+	height: 26px;
+	font-size:0;
+	color:transparent;
+}
+
+.red_white_popup .ui-widget-overlay {
+	filter: alpha(opacity = 50);
+	opacity: .4;
+	position: fixed;
+	top: 0;
+	left: 0;
+	background: white;
+	z-index: 30;
+	height: 100%;
+	width: 100%;
+}
